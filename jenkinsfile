@@ -1,0 +1,46 @@
+pipeline {
+ agent any
+   stages {
+      stage('Git checkout') {
+        steps {
+           checkout([$class: 'GitSCM', branches: [[name: '*/master']], 
+           doGenerateSubmoduleConfigurations: false, extensions: [[$class: 'CheckoutOption']], 
+              submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'gitaccess', url: 
+              'https://github.com/nhprasad197/myweb.git']]])
+        }
+      }
+      stage('Pulling the image from dockerhub') {
+        steps {
+          sh """
+              docker pull "nhprasad/javawebapp:base"
+              docker tag nhprasad/javawebapp:base javawebapp:base
+              docker build -t "javawebapplication" .
+          """
+        }
+      }
+      stage('Building the image') {
+        steps {
+          sh """
+              docker build -t "javawebapplication" .
+          """
+        }
+      }
+      stage('Checking the application status') {
+        steps {
+           script {
+              def container_status = sh(script: "docker ps -a|grep -i javawebapplication", 
+                 returnStatus: true) == 0
+              if ("${container_status}" == "true")
+              {
+                 sh 'docker rm -f javawebapplication'
+              }
+            }
+        }
+      }
+      stage('Starting the application') {
+        steps {
+           sh "docker run -d --name javawebapplication -p 8000:8080 javawebapplication"
+        }
+      }
+    }
+}
